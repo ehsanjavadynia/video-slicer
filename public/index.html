@@ -17,7 +17,7 @@
           <label for="videoFile">Select Video File</label>
           <div class="file-input-wrapper">
             <input type="file" id="videoFile" name="video" accept="video/*" required>
-            <span class="file-label">Choose a video...</span>
+            <span class="file-label" role="button" tabindex="0" aria-label="Click to select a video file">Choose a video...</span>
           </div>
         </div>
 
@@ -61,7 +61,7 @@
         <button type="submit" class="btn-primary">Split Video</button>
       </form>
 
-      <div id="loadingState" class="loading-state" style="display: none;">
+      <div id="loadingState" class="loading-state" style="display: none;" role="status" aria-live="polite">
         <div class="spinner"></div>
         <p>Processing your video...</p>
       </div>
@@ -81,7 +81,7 @@
         </div>
       </div>
 
-      <div id="errorSection" class="error-section" style="display: none;">
+      <div id="errorSection" class="error-section" style="display: none;" role="alert" aria-live="assertive">
         <p id="errorMessage"></p>
         <button id="dismissErrorBtn" class="btn-tertiary">Dismiss</button>
       </div>

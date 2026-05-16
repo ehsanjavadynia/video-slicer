@@ -16,8 +16,20 @@ const fileInputWrapper = document.querySelector('.file-input-wrapper');
 
 let currentJobId = null;
 
+/**
+ * Handles file input trigger when file label is clicked or focused.
+ * Supports both mouse click and keyboard (Enter/Space) activation.
+ */
 fileLabel.addEventListener('click', () => {
   videoFileInput.click();
+});
+
+// Enable keyboard navigation for the file label button
+fileLabel.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' || e.key === ' ') {
+    e.preventDefault();
+    videoFileInput.click();
+  }
 });
 
 videoFileInput.addEventListener('change', (e) => {
@@ -67,20 +79,42 @@ uploadForm.addEventListener('submit', async (e) => {
   }
 });
 
+/**
+ * Displays video processing results with dynamically created clip items.
+ * Each clip item includes accessibility attributes for screen readers.
+ *
+ * @param {Object} data - Result data from the API
+ * @param {string[]} data.clips - Array of clip filenames
+ * @param {number} data.totalDuration - Total video duration in seconds
+ * @param {number} data.chunkCount - Number of clips created
+ */
 function displayResults(data) {
   const { clips, totalDuration, chunkCount } = data;
 
   document.getElementById('totalDuration').textContent = Math.round(totalDuration);
   document.getElementById('chunkCount').textContent = chunkCount;
 
-  clipsList.innerHTML = clips
-    .map((clip) => `
-      <div class="clip-item">
-        <span class="clip-name">${clip}</span>
-        <a href="/api/download/${currentJobId}/${clip}" class="clip-download">Download</a>
-      </div>
-    `)
-    .join('');
+  clipsList.innerHTML = '';
+  clips.forEach((clip, index) => {
+    const clipItem = document.createElement('div');
+    clipItem.className = 'clip-item';
+    clipItem.setAttribute('role', 'region');
+    clipItem.setAttribute('aria-label', `Video clip ${index + 1} of ${clips.length}: ${clip}`);
+
+    const clipName = document.createElement('span');
+    clipName.className = 'clip-name';
+    clipName.textContent = clip;
+
+    const downloadLink = document.createElement('a');
+    downloadLink.className = 'clip-download';
+    downloadLink.href = `/api/download/${currentJobId}/${clip}`;
+    downloadLink.textContent = 'Download';
+    downloadLink.setAttribute('aria-label', `Download clip: ${clip}`);
+
+    clipItem.appendChild(clipName);
+    clipItem.appendChild(downloadLink);
+    clipsList.appendChild(clipItem);
+  });
 
   downloadZipBtn.onclick = () => {
     window.location.href = `/api/zip/${currentJobId}`;
