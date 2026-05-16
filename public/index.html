@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video Slicer</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Video Slicer</h1>
+      <p class="subtitle">Split your videos into smaller chunks</p>
+
+      <form id="uploadForm" class="upload-form">
+        <div class="form-group">
+          <label for="videoFile">Select Video File</label>
+          <div class="file-input-wrapper">
+            <input type="file" id="videoFile" name="video" accept="video/*" required>
+            <span class="file-label">Choose a video...</span>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="maxDuration">Max Duration per Clip (seconds)</label>
+          <input
+            type="number"
+            id="maxDuration"
+            name="maxDuration"
+            value="30"
+            min="1"
+            max="3600"
+            required
+          >
+          <small>Precise cutting with frame-accurate splits</small>
+        </div>
+
+        <div class="form-group">
+          <label for="quality">Output Quality</label>
+          <select id="quality" name="quality" required>
+            <option value="1080">1080p (Full HD) - Largest file</option>
+            <option value="720" selected>720p (HD) - Balanced</option>
+            <option value="480">480p (SD) - Smallest file</option>
+          </select>
+        </div>
+
+        <button type="submit" class="btn-primary">Split Video</button>
+      </form>
+
+      <div id="loadingState" class="loading-state" style="display: none;">
+        <div class="spinner"></div>
+        <p>Processing your video...</p>
+      </div>
+
+      <div id="resultsSection" class="results-section" style="display: none;">
+        <h2>Your Clips</h2>
+        <p class="info-text">
+          Total Duration: <span id="totalDuration"></span>s |
+          Clips: <span id="chunkCount"></span>
+        </p>
+
+        <div id="clipsList" class="clips-list"></div>
+
+        <div class="download-actions">
+          <button id="downloadZipBtn" class="btn-secondary">Download All as ZIP</button>
+          <button id="resetBtn" class="btn-tertiary">Upload Another</button>
+        </div>
+      </div>
+
+      <div id="errorSection" class="error-section" style="display: none;">
+        <p id="errorMessage"></p>
+        <button id="dismissErrorBtn" class="btn-tertiary">Dismiss</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
