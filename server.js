@@ -137,7 +137,7 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid quality' });
     }
 
-    const compressionValue = parseInt(compression) || 3;
+    const compressionValue = parseInt(compression) || 0;
     if (![0, 1, 2, 3, 4, 5, 6].includes(compressionValue)) {
       return res.status(400).json({ error: 'Invalid compression level' });
     }
