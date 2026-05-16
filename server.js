@@ -67,16 +67,19 @@ const splitVideo = async (inputPath, outputDir, maxDuration, quality = 720, comp
             };
 
             const crf = crfMap[compression] || 23;
+            const options = ['-crf', String(crf)];
+
+            if (qualityMap[quality]) {
+              options.push('-vf');
+              options.push(`scale=-1:${qualityMap[quality]}`);
+            }
+
             const cmd = ffmpeg(inputPath)
               .seekInput(startTime)
               .duration(maxDuration)
               .videoCodec('libx264')
               .audioCodec('aac')
-              .outputOptions('-crf', String(crf));
-
-            if (qualityMap[quality]) {
-              cmd.outputOptions('-vf', `scale=-1:${qualityMap[quality]}`);
-            }
+              .outputOptions(options);
 
             cmd.output(outputFile)
               .on('end', () => {
