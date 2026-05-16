@@ -47,9 +47,13 @@ const splitVideo = async (inputPath, outputDir, maxDuration, quality = 720, comp
       const clips = [];
 
       const crfMap = {
-        0: 18,
-        1: 23,
-        2: 28
+        0: 15,
+        1: 18,
+        2: 21,
+        3: 23,
+        4: 25,
+        5: 28,
+        6: 32
       };
 
       try {
@@ -133,8 +137,8 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid quality' });
     }
 
-    const compressionValue = parseInt(compression) || 1;
-    if (![0, 1, 2].includes(compressionValue)) {
+    const compressionValue = parseInt(compression) || 3;
+    if (![0, 1, 2, 3, 4, 5, 6].includes(compressionValue)) {
       return res.status(400).json({ error: 'Invalid compression level' });
     }
 

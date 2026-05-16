@@ -47,11 +47,15 @@
         <div class="form-group">
           <label for="compression">Compression Level</label>
           <select id="compression" name="compression" required>
-            <option value="0">None - Highest quality</option>
-            <option value="1" selected>Balanced - Medium compression</option>
-            <option value="2">High - Smaller files</option>
+            <option value="0">Level 0 - Maximum Quality (Largest)</option>
+            <option value="1">Level 1 - Very High Quality</option>
+            <option value="2">Level 2 - High Quality</option>
+            <option value="3" selected>Level 3 - Balanced (Default)</option>
+            <option value="4">Level 4 - Medium Compression</option>
+            <option value="5">Level 5 - High Compression</option>
+            <option value="6">Level 6 - Maximum Compression (Smallest)</option>
           </select>
-          <small>Higher compression reduces file size but may affect quality</small>
+          <small>Adjust the compression level to balance quality and file size</small>
         </div>
 
         <button type="submit" class="btn-primary">Split Video</button>
