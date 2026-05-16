@@ -37,7 +37,7 @@ app.use(express.static('public'));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const splitVideo = async (inputPath, outputDir, maxDuration, quality = 720) => {
+const splitVideo = async (inputPath, outputDir, maxDuration, quality = 720, compression = 1) => {
   return new Promise((resolve, reject) => {
     ffmpeg.ffprobe(inputPath, async (err, metadata) => {
       if (err) return reject(err);
@@ -45,6 +45,12 @@ const splitVideo = async (inputPath, outputDir, maxDuration, quality = 720) => {
       const totalDuration = metadata.format.duration;
       const chunkCount = Math.ceil(totalDuration / maxDuration);
       const clips = [];
+
+      const crfMap = {
+        0: 18,
+        1: 23,
+        2: 28
+      };
 
       try {
         for (let i = 0; i < chunkCount; i++) {
@@ -60,12 +66,13 @@ const splitVideo = async (inputPath, outputDir, maxDuration, quality = 720) => {
               1080: null
             };
 
+            const crf = crfMap[compression] || 23;
             const cmd = ffmpeg(inputPath)
               .seekInput(startTime)
               .duration(maxDuration)
               .videoCodec('libx264')
               .audioCodec('aac')
-              .outputOptions('-crf', '18');
+              .outputOptions('-crf', String(crf));
 
             if (qualityMap[quality]) {
               cmd.outputOptions('-vf', `scale=-1:${qualityMap[quality]}`);
@@ -109,7 +116,7 @@ const scheduleCleanup = (jobId, delayMs = 10 * 60 * 1000) => {
 
 app.post('/api/upload', upload.single('video'), async (req, res) => {
   try {
-    const { maxDuration, quality } = req.body;
+    const { maxDuration, quality, compression } = req.body;
     const jobId = req.jobId;
     const inputPath = req.file.path;
     const jobDir = path.join(uploadsDir, jobId);
@@ -123,7 +130,12 @@ app.post('/api/upload', upload.single('video'), async (req, res) => {
       return res.status(400).json({ error: 'Invalid quality' });
     }
 
-    const result = await splitVideo(inputPath, jobDir, parseInt(maxDuration), qualityValue);
+    const compressionValue = parseInt(compression) || 1;
+    if (![0, 1, 2].includes(compressionValue)) {
+      return res.status(400).json({ error: 'Invalid compression level' });
+    }
+
+    const result = await splitVideo(inputPath, jobDir, parseInt(maxDuration), qualityValue, compressionValue);
     scheduleCleanup(jobId);
 
     res.json({ jobId, ...result });

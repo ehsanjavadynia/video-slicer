@@ -2,6 +2,7 @@ const uploadForm = document.getElementById('uploadForm');
 const videoFileInput = document.getElementById('videoFile');
 const maxDurationInput = document.getElementById('maxDuration');
 const qualityInput = document.getElementById('quality');
+const compressionInput = document.getElementById('compression');
 const loadingState = document.getElementById('loadingState');
 const resultsSection = document.getElementById('resultsSection');
 const errorSection = document.getElementById('errorSection');
@@ -37,6 +38,7 @@ uploadForm.addEventListener('submit', async (e) => {
   formData.append('video', videoFileInput.files[0]);
   formData.append('maxDuration', maxDurationInput.value);
   formData.append('quality', qualityInput.value);
+  formData.append('compression', compressionInput.value);
 
   uploadForm.style.display = 'none';
   loadingState.style.display = 'block';
