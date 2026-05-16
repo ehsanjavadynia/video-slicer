@@ -38,7 +38,22 @@ videoFileInput.addEventListener('change', (e) => {
   fileInputWrapper.classList.toggle('active', e.target.files.length > 0);
 });
 
-uploadForm.addEventListener('submit', async (e) => {
+/**
+ * Updates the progress bar and percentage display.
+ * @param {number} percent - Progress percentage (0-100)
+ * @param {string} message - Loading message to display
+ */
+function updateProgress(percent, message) {
+  const progressBar = document.getElementById('progressBar');
+  const progressPercent = document.getElementById('progressPercent');
+  const loadingMessage = document.getElementById('loadingMessage');
+
+  progressBar.style.width = Math.min(100, percent) + '%';
+  progressPercent.textContent = Math.round(percent);
+  loadingMessage.textContent = message;
+}
+
+uploadForm.addEventListener('submit', (e) => {
   e.preventDefault();
 
   if (!videoFileInput.files.length) {
@@ -56,28 +71,87 @@ uploadForm.addEventListener('submit', async (e) => {
   loadingState.style.display = 'block';
   resultsSection.style.display = 'none';
   errorSection.style.display = 'none';
+  updateProgress(0, 'Uploading video...');
 
-  try {
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    });
+  const xhr = new XMLHttpRequest();
 
-    if (!response.ok) {
-      const data = await response.json();
-      throw new Error(data.error || 'Upload failed');
+  // Track upload progress
+  xhr.upload.addEventListener('progress', (e) => {
+    if (e.lengthComputable) {
+      const percentComplete = (e.loaded / e.total) * 60;
+      updateProgress(percentComplete, 'Uploading video...');
     }
+  });
 
-    const data = await response.json();
-    currentJobId = data.jobId;
+  // Handle completion
+  xhr.addEventListener('load', () => {
+    if (xhr.status === 200) {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        currentJobId = data.jobId;
 
-    displayResults(data);
-  } catch (error) {
-    showError(error.message);
+        // Simulate processing progress (60-95%)
+        simulateProcessingProgress(data);
+      } catch (error) {
+        showError('Failed to parse server response');
+        uploadForm.style.display = 'block';
+        loadingState.style.display = 'none';
+      }
+    } else {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        showError(data.error || 'Upload failed');
+      } catch {
+        showError('Upload failed with status ' + xhr.status);
+      }
+      uploadForm.style.display = 'block';
+      loadingState.style.display = 'none';
+    }
+  });
+
+  // Handle errors
+  xhr.addEventListener('error', () => {
+    showError('Network error during upload');
     uploadForm.style.display = 'block';
     loadingState.style.display = 'none';
-  }
+  });
+
+  xhr.addEventListener('abort', () => {
+    showError('Upload cancelled');
+    uploadForm.style.display = 'block';
+    loadingState.style.display = 'none';
+  });
+
+  xhr.open('POST', '/api/upload');
+  xhr.send(formData);
 });
+
+/**
+ * Simulates processing progress with smooth animation.
+ * @param {Object} data - Result data from the API
+ */
+function simulateProcessingProgress(data) {
+  let currentProgress = 60;
+  const targetProgress = 95;
+  const steps = 20;
+  const stepDuration = 200;
+
+  const progressInterval = setInterval(() => {
+    currentProgress += (targetProgress - currentProgress) / steps;
+
+    if (currentProgress >= targetProgress - 1) {
+      currentProgress = targetProgress;
+      clearInterval(progressInterval);
+
+      updateProgress(100, 'Processing complete!');
+      setTimeout(() => {
+        displayResults(data);
+      }, 300);
+    } else {
+      updateProgress(currentProgress, 'Processing video clips...');
+    }
+  }, stepDuration);
+}
 
 /**
  * Displays video processing results with dynamically created clip items.

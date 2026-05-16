@@ -63,7 +63,11 @@
 
       <div id="loadingState" class="loading-state" style="display: none;" role="status" aria-live="polite">
         <div class="spinner"></div>
-        <p>Processing your video...</p>
+        <p id="loadingMessage">Uploading video...</p>
+        <div class="progress-container">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <p class="progress-text"><span id="progressPercent">0</span>%</p>
       </div>
 
       <div id="resultsSection" class="results-section" style="display: none;">
