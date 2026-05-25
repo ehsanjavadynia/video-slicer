@@ -5,28 +5,40 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
-echo "🎬 Video Slicer"
+echo "Video Slicer"
 echo ""
 
 # Check if ffmpeg is installed
 if ! command -v ffmpeg &> /dev/null; then
-    echo "❌ ffmpeg is not installed"
+    echo "ffmpeg is not installed"
     echo "Installing ffmpeg with Homebrew..."
     brew install ffmpeg
-    echo "✅ ffmpeg installed"
+    echo "ffmpeg installed"
 fi
 
-# Check if node_modules exists
-if [ ! -d "node_modules" ]; then
-    echo "📦 Installing dependencies..."
-    npm install
-    echo "✅ Dependencies installed"
+# Check if Python 3 is installed
+if ! command -v python3 &> /dev/null; then
+    echo "Python 3 is required but not found"
+    exit 1
 fi
 
-echo "🚀 Starting server..."
+# Create venv if not present
+if [ ! -d "venv" ]; then
+    echo "Creating virtual environment..."
+    python3 -m venv venv
+fi
+
+source venv/bin/activate
+
+# Install dependencies
+echo "Installing dependencies..."
+pip install -q -r requirements.txt
+echo "Dependencies installed"
+
+echo "Starting server..."
 echo ""
-echo "🌐 Open your browser at: http://localhost:3000"
-echo "⏹️  Press Ctrl+C to stop the server"
+echo "Open your browser at: http://localhost:3000"
+echo "Press Ctrl+C to stop the server"
 echo ""
 
-node server.js
+uvicorn app.server:app --host 0.0.0.0 --port 3000

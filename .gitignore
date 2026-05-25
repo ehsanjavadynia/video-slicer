@@ -3,3 +3,9 @@ uploads/
 .DS_Store
 *.log
 .claude/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+venv/
+.pytest_cache/

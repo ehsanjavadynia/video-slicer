@@ -29,8 +29,8 @@ export const FFmpeg_TIMEOUT_MS = 30 * 60 * 1000;
 // Default cleanup delay in milliseconds (10 minutes)
 export const DEFAULT_CLEANUP_DELAY_MS = 10 * 60 * 1000;
 
-// Maximum file upload size in bytes (100 MB)
-export const MAX_FILE_SIZE = 100 * 1024 * 1024;
+// Maximum file upload size in bytes (500 MB)
+export const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
 // Maximum duration per clip in seconds
 export const MAX_DURATION_SECONDS = 3600;

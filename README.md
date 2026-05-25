@@ -13,10 +13,11 @@ A lightweight web application that splits large video files into smaller, more m
 
 ## Tech Stack
 
-- **Backend**: Node.js with Express.js
-- **Video Processing**: FFmpeg with fluent-ffmpeg wrapper
-- **File Upload**: Multer
-- **Archiving**: Archiver for ZIP creation
+- **Backend**: Python with FastAPI
+- **ASGI Server**: Uvicorn
+- **Video Processing**: FFmpeg via subprocess
+- **File Upload**: python-multipart
+- **Archiving**: zipfile (Python standard library)
 - **Frontend**: Vanilla JavaScript, HTML, CSS
 - **Video Codec**: H.264 (libx264)
 - **Audio Codec**: AAC
@@ -25,33 +26,36 @@ A lightweight web application that splits large video files into smaller, more m
 
 ### Prerequisites
 
-- Node.js 16.x or higher
+- Python 3.8 or higher
 - FFmpeg installed and available in PATH
 
 On macOS (via Homebrew):
 ```bash
-brew install ffmpeg
+brew install ffmpeg python3
 ```
 
 On Ubuntu/Debian:
 ```bash
-sudo apt-get install ffmpeg
+sudo apt-get install ffmpeg python3 python3-pip python3-venv
 ```
 
 ### Setup
 
 1. Clone or download the repository
-2. Install dependencies:
+2. Run the startup script (handles venv and dependencies):
    ```bash
-   npm install
+   ./run.sh
    ```
 
-3. Start the server:
+   Or manually:
    ```bash
-   npm start
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r requirements.txt
+   uvicorn app.server:app --port 3000
    ```
 
-4. Open your browser and navigate to `http://localhost:3000`
+3. Open your browser and navigate to `http://localhost:3000`
 
 ## Usage
 
@@ -101,7 +105,7 @@ Upload a video file and split it into clips.
 }
 ```
 
-### GET /api/download/:jobId/:filename
+### GET /api/download/{jobId}/{filename}
 
 Download a specific clip.
 
@@ -109,12 +113,16 @@ Download a specific clip.
 - `jobId`: Job ID from upload response
 - `filename`: Clip filename (e.g., "clip_001.mp4")
 
-### GET /api/zip/:jobId
+**Response**: Binary file download
+
+### GET /api/zip/{jobId}
 
 Download all clips as a ZIP file.
 
 **Parameters**:
 - `jobId`: Job ID from upload response
+
+**Response**: ZIP file download
 
 ## Configuration
 
@@ -124,16 +132,17 @@ Download all clips as a ZIP file.
 - Compression: Level 0 (maximum quality, CRF 15)
 - Server Port: 3000
 - Auto-cleanup Delay: 10 minutes
-- Max Upload Size: No explicit limit (configurable via Multer if needed)
+- Max Upload Size: 500 MB (enforced during streaming upload)
 
 ### Environment Variables
 
-Currently, no environment variables are required. To add custom configuration, modify `server.js`:
+Currently, no environment variables are required. To customize the server port, use:
 
-```javascript
-const PORT = process.env.PORT || 3000;
-const CLEANUP_DELAY = process.env.CLEANUP_DELAY || 10 * 60 * 1000;
+```bash
+uvicorn server:app --port 8000
 ```
+
+To modify constants like compression levels or timeouts, edit `constants.py`.
 
 ## Development
 
@@ -141,13 +150,25 @@ const CLEANUP_DELAY = process.env.CLEANUP_DELAY || 10 * 60 * 1000;
 
 ```
 video-slicer/
-├── server.js              # Express server and FFmpeg logic
+├── app/                   # Python source package
+│   ├── __init__.py
+│   ├── server.py          # FastAPI app, startup/shutdown, dependency wiring
+│   ├── registry.py        # JobRegistry — shared state (jobs, processes, timers)
+│   ├── validator.py       # PathValidator — path traversal and symlink protection
+│   ├── processor.py       # VideoProcessor — FFmpeg encoding and duration probing
+│   ├── service.py         # VideoService — validation, file save, job orchestration
+│   ├── cleanup.py         # JobCleanupManager — cleanup scheduling and periodic sweep
+│   ├── resources.py       # VideoResource — FastAPI route handlers (APIRouter)
+│   └── constants.py       # Shared constants (CRF mappings, limits, timeouts)
 ├── public/
 │   ├── index.html         # Web UI
 │   ├── app.js             # Frontend JavaScript
 │   └── style.css          # Styling
+├── tests/
+│   ├── __init__.py
+│   └── test_server.py     # 24 pytest tests
 ├── uploads/               # Temporary working directory (created at runtime)
-├── package.json
+├── requirements.txt       # Python dependencies
 └── README.md
 ```
 
@@ -164,7 +185,7 @@ video-slicer/
 For each clip:
 ```bash
 ffmpeg -i input.mp4 -ss {startTime} -t {duration} \
-  -c:v libx264 -crf {crfValue} -vf scale=-1:{height} \
+  -c:v libx264 -crf {crfValue} -vf scale=-2:{height} \
   -c:a aac -y output.mp4
 ```
 

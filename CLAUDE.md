@@ -4,56 +4,52 @@
 
 **Video Slicer** is a web application for splitting large video files into smaller, manageable clips with adjustable quality and compression settings.
 
-- **Tech Stack**: Node.js/Express backend, vanilla JavaScript frontend, FFmpeg for video processing
-- **Main Entry**: `server.js` (runs on port 3000)
+- **Tech Stack**: Python 3 / FastAPI backend, vanilla JavaScript frontend, FFmpeg for video processing
+- **Main Entry**: `server.py` (runs on port 3000 via uvicorn)
 - **Frontend**: `public/index.html`, `public/app.js`, `public/style.css`
-- **Configuration**: `constants.js` (centralized constants)
-- **Tests**: `tests/server.test.js` (24 tests, run with `npm test`)
+- **Configuration**: `constants.py` (centralized constants)
+- **Tests**: `tests/test_server.py` (24 pytest tests, run with `pytest tests/ -v`)
 
 ## Architecture & Design Decisions
 
 ### Video Processing Pipeline
-- Uses **fluent-ffmpeg** wrapper around FFmpeg for video encoding
+- Uses **asyncio.create_subprocess_exec** to invoke FFmpeg directly (no wrapper dependency)
 - H.264 codec (libx264) for video, AAC for audio
 - **CRF (Constant Rate Factor)** mapping for compression levels 0-6 (CRF 15-32)
   - Lower CRF = higher quality, larger files
-  - CRF values defined in `constants.js`, shared between server and tests
+  - CRF values defined in `constants.py`, shared between server and tests
 - Processes clips **sequentially** (one at a time) to prevent resource exhaustion
+- Each clip processed via non-blocking async subprocess (event loop not blocked)
 - Default: 480p quality, Level 0 compression (maximum quality)
 
 ### Security Hardening (3-Round Review Completed)
 
-**Round 1 - Critical Vulnerabilities Fixed:**
-- Path traversal protection: `path.basename()` in download endpoints
-- File upload validation: 100MB limit, video/* MIME type whitelist
-- XSS prevention: Use `textContent` for dynamic filename display instead of `innerHTML`
-- Input validation: maxDuration upper bound (3600 seconds/1 hour)
-- HTTP error handling: Graceful error responses without header conflicts
-
-**Round 2 - Resource Management:**
-- FFmpeg process tracking and graceful shutdown on error/signals
-- Concurrent job limiting: Max 3 active jobs (429 response when exceeded)
-- Request timeout: 30 minutes per clip processing
-- jobId path validation: UUID/safe format check + `path.resolve()` boundary validation
-- Race condition prevention: Cleanup locks and retry logic with exponential backoff
-
-**Round 3 - Code Quality:**
-- JSDoc comments on complex functions (`splitVideo`, `validateJobPath`, `scheduleCleanup`)
-- Constants extraction to `constants.js` (CRF_MAP, VALID_QUALITIES, VALID_COMPRESSION_LEVELS, limits)
-- Improved error handling: Cleanup with retry logic (3 attempts with backoff)
-- Frontend accessibility: ARIA labels, keyboard navigation, live regions for screen readers
+**Python/FastAPI Migration Security:**
+- Path traversal protection: `Path.resolve()` + `startswith()` boundary check in `validate_job_path()`
+- File upload validation: 500MB limit (streaming check), video/* MIME type whitelist
+- XSS prevention: Frontend still uses `textContent` for dynamic display
+- Input validation: maxDuration bounds (1 - 3600 seconds), type coercion with error handling
+- HTTP error handling: FastAPI's HTTPException for clean error responses
+- FFmpeg process tracking: Dict of lists per job_id for signal cleanup
+- Concurrent job limiting: `asyncio.Semaphore(3)` atomic gate + dict-based job tracking
+- Request timeout: 30 minutes per clip (via `asyncio.wait_for`)
+- jobId validation: UUID regex check + path traversal boundary validation
+- Cleanup mechanism: `asyncio.get_event_loop().call_later()` + retry with exponential backoff
+- Signal handlers: `signal.signal(SIGTERM/SIGINT)` with graceful FFmpeg process shutdown
 
 ## Key Files & Their Roles
 
 | File | Purpose |
 |------|---------|
-| `server.js` | Express server, FFmpeg processing, API endpoints, job management |
-| `constants.js` | Centralized configuration (CRF mapping, limits, timeouts) |
+| `server.py` | FastAPI server, FFmpeg processing via asyncio.create_subprocess_exec, API endpoints (POST /api/upload, GET /api/download, GET /api/zip), job management, cleanup, signal handlers |
+| `constants.py` | Centralized configuration (CRF mapping, limits, timeouts in seconds) |
 | `public/app.js` | Frontend form handling, API calls, results display, accessibility |
 | `public/index.html` | HTML structure with ARIA labels for accessibility |
-| `public/style.css` | Styling (no changes needed typically) |
-| `tests/server.test.js` | 24 unit tests covering validation, CRF mapping, calculations |
-| `.gitignore` | Excludes node_modules, uploads, .DS_Store, *.log, .claude/ |
+| `public/style.css` | Styling (no changes needed) |
+| `tests/test_server.py` | 24 pytest tests covering validation, CRF mapping, calculations (6 test classes) |
+| `requirements.txt` | Python dependencies (fastapi, uvicorn, python-multipart, aiofiles, pytest, httpx) |
+| `run.sh` | Startup script: checks Python 3, creates/activates venv, installs requirements, runs uvicorn |
+| `.gitignore` | Excludes uploads, __pycache__, *.pyc, venv, .pytest_cache, .DS_Store, *.log, .claude/ |
 
 ## API Endpoints
 
@@ -78,16 +74,19 @@ Download all clips as ZIP archive.
 
 ### Running the Project
 ```bash
-npm start           # Start dev server on http://localhost:3000
-npm test            # Run 24 tests (all should pass)
+./run.sh            # Start server on http://localhost:3000 (handles venv + dependencies)
+# OR manually:
+source venv/bin/activate && uvicorn server:app --port 3000
+
+pytest tests/ -v    # Run 24 tests (all should pass)
 ```
 
 ### Making Changes
 
 **When modifying core logic:**
 1. Keep changes minimal and focused
-2. If modifying validation/limits, update `constants.js` AND tests
-3. Test with `npm test` - all tests must pass
+2. If modifying validation/limits, update `constants.py` AND tests
+3. Test with `pytest tests/ -v` - all 24 tests must pass
 4. For FFmpeg changes: test with actual video files to verify encoding
 
 **When adding features:**
@@ -104,7 +103,7 @@ npm test            # Run 24 tests (all should pass)
 
 ### Testing
 ```bash
-npm test            # Runs all 24 tests
+pytest tests/ -v    # Runs all 24 tests
 ```
 
 Test categories:
@@ -119,35 +118,44 @@ All tests must pass before committing.
 
 ## Important Implementation Notes
 
-### FFmpeg Output Options
-Must pass all options as **single array** to `outputOptions()`, not chained:
-```javascript
-// ✅ CORRECT
-const options = ['-crf', String(crf), '-vf', `scale=-1:${height}`];
-cmd.outputOptions(options);
+### Static Files Mount Order (FastAPI Critical)
+The static file mount **must be LAST** after all API routes, or it will intercept API calls:
+```python
+# ✅ CORRECT - mount static files last
+@app.post("/api/upload")
+async def upload(...): ...
 
-// ❌ WRONG - causes exit code 187
-cmd.outputOptions('-crf', String(crf));
-cmd.outputOptions('-vf', `scale=-1:${height}`);
+@app.get("/api/download/{job_id}/{filename}")
+async def download_clip(...): ...
+
+app.mount("/", StaticFiles(directory="public"), name="static")  # LAST
+
+# ❌ WRONG - mounting first causes /api/* routes to be intercepted
+app.mount("/", StaticFiles(directory="public"), name="static")
+@app.post("/api/upload")
+async def upload(...): ...
 ```
 
 ### Cleanup Mechanism
-- Scheduled 10 minutes after upload completes
-- Uses locks (`cleanupLocks` Set) to prevent simultaneous deletions
-- Implements retry logic with exponential backoff (1s, 2s, 4s)
-- Files in `uploads/{jobId}/` directory are automatically deleted
-- ZIP downloads reschedule cleanup to 10 minutes after download initiation
+- Scheduled via `asyncio.get_event_loop().call_later(delay, callback)` (Python equiv of setTimeout)
+- Scheduled 10 minutes after upload or ZIP download completes
+- Uses locks (`cleanup_locks` set) to prevent simultaneous scheduling
+- Implements retry logic with exponential backoff (1s, 2s, 4s) via `_do_cleanup(job_id, retry)`
+- Files in `uploads/{job_id}/` directory deleted via `shutil.rmtree()`
+- ZIP downloads trigger cleanup via `schedule_cleanup(job_id)` in GET /api/zip/{job_id}
 
 ### Process Management
-- FFmpeg processes tracked in `ffmpegProcesses` Map
-- Killed on error via `.on('error')` handler
-- Server handles SIGTERM/SIGINT to gracefully shutdown all processes
-- Timeout: 30 minutes per clip (multiply by chunk count for total)
+- FFmpeg processes tracked in `ffmpeg_processes[job_id]` dict of lists
+- Each subprocess created via `asyncio.create_subprocess_exec()` with `await proc.wait()`
+- Killed on error during split_video loop or via signal handlers
+- Server handles SIGTERM/SIGINT via `signal.signal()` to gracefully kill all processes
+- Timeout: 30 minutes per clip processing via `asyncio.wait_for(timeout=FFMPEG_TIMEOUT_SECONDS)`
 
-### Rate Limiting
-- Max 3 concurrent jobs (request returns 429 if exceeded)
+### Rate Limiting & Concurrency
+- Max 3 concurrent jobs via `asyncio.Semaphore(MAX_CONCURRENT_JOBS)`
+- Request returns 429 if job count exceeds MAX_CONCURRENT_JOBS
+- Jobs tracked in `active_jobs` dict for informational purposes
 - No per-IP rate limiting (could be added if needed)
-- Jobs tracked in `activeJobs` Map
 
 ## Accessibility Notes
 
